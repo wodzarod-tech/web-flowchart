@@ -80,7 +80,7 @@
   }
   
   #panel.open { 
-    transform: translateX(0);
+    transform: translateX(0); /* animation */
   }
 
   #panel header {
@@ -318,14 +318,16 @@ const panelTextColor = document.getElementById('panelTextColor');
 
 const textEditor = document.getElementById("textEditor");
 
-let shapes = [];         // saved shapes
-let selected = null;     // currently selected shape
-let tempShape = null;    // preview while drawing
+// main variables
+let shapes = [];         // list of drawn shapes
+let selected = null;     // shape currently selected
+let tempShape = null;    // shape preview while drawing
 
 // interaction flags
 let isDrawing = false;
 let isDragging = false;
 let isResizing = false;
+
 let activeHandle = null;
 
 // pointer start
@@ -340,6 +342,8 @@ function setCanvasSizeCSS() {
   canvas.style.height = (window.innerHeight - toolbar.offsetHeight) + 'px';
   fitCanvas();
 }
+
+// Canvas Auto-scaling
 function fitCanvas() {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -348,10 +352,27 @@ function fitCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   redraw();
 }
+
 window.addEventListener('resize', setCanvasSizeCSS);
 setCanvasSizeCSS();
 
 /* -------------------- Shape Class -------------------- */
+/*
+1. each shape stores:
+Type: "rectangle" or "circle"
+Position: x, y
+Dimensions: w, h
+Rounded corners (rectangle only)
+Fill, stroke, opacity
+Text & text style
+
+2. methods:
+draw(): draws shape on canvas
+drawOutline(): red dashed selection outline
+drawHandles(): corner handles for resizing
+contains(px,py): check if clicked
+handleAt(px,py): check if touching a handle
+*/
 class Shape {
   constructor(type, x, y, w, h, opts = {}) {
     this.type = type;
@@ -507,6 +528,12 @@ function drawRoundedOrPlainRect(ctx, x, y, w, h, radius) {
 }
 
 /* -------------------- Drawing Helpers -------------------- */
+/*
+clears the canvas and draw:
+  1. All shapes
+  2. Text inside shapes
+  3. The temp shape (if drawing)
+*/
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
@@ -517,30 +544,47 @@ function redraw() {
   
   if (tempShape) tempShape.draw(ctx, false);
 }
+
 function screenToCanvas(e) {
   const r = canvas.getBoundingClientRect();
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
 /* -------------------- Panel Control -------------------- */
+/*
+used when selecting a shape
+
+Panel fields are updated with:
+	fill color
+	border style
+	opacity
+	text fields
+	x/y/w/h
+*/
 function openPanelForShape(shape) {
   if (!shape) return;
+  
   selected = shape;
+
   syncPanelToShape();
+  
   // show toolbar text controls if shape has text (we show them always when selected)
   panel.classList.add('open');
   panel.setAttribute('aria-hidden', 'false');
+  
   // ensure panel is visible (force reflow in odd cases)
   panel.style.display = 'flex';
 }
+
 function closePanel() {
   panel.classList.remove('open');
   panel.setAttribute('aria-hidden', 'true');
 }
 
+// syncing the Panel
 function syncPanelToShape() {
-	debugger;
   if (!selected) return;
+  
   propType.value = selected.type;
   propFill.value = selected.opts.fill;
   propBorder.value = selected.opts.border;
@@ -551,12 +595,13 @@ function syncPanelToShape() {
   propX.value = Math.round(selected.x);
   propY.value = Math.round(selected.y);
 
+  // for rectangle
   if (selected.type === 'rectangle') {
     propW.value = Math.round(selected.w);
     propH.value = Math.round(selected.h);
     document.getElementById('sizeRow').style.display = '';
     document.getElementById('sizeRowH').style.display = '';
-  } else {
+  } else { // for circle
     const r = Math.round(Math.max(0, Math.sqrt(selected.w*selected.w + selected.h*selected.h)));
     propW.value = r;
     propH.value = r;
@@ -600,13 +645,13 @@ function applyPanelToShape(live = true) {
   if (live) redraw();
 }
 
-/* wire panel controls (live updates) */
+// live updates from panel
 propFill.addEventListener('input', () => { if(selected){ selected.opts.fill = propFill.value; redraw(); }});
 propBorder.addEventListener('change', () => { if(selected){ selected.opts.border = propBorder.value; redraw(); }});
 propThickness.addEventListener('input', () => { if(selected){ selected.opts.thickness = +propThickness.value; redraw(); }});
 propOpacity.addEventListener('input', () => { if(selected){ selected.opts.opacity = +propOpacity.value; propOpacityVal.innerText = (+propOpacity.value).toFixed(2); redraw(); }});
 
-// Rounded corners
+// rounded corners
 propRounded.addEventListener('change', () => { 
 	if(selected && selected.type === 'rectangle'){ 
 		selected.rounded = propRounded.checked; 
@@ -626,14 +671,17 @@ propReset.addEventListener('click', () => { syncPanelToShape(); });
 panelClose.addEventListener('click', closePanel);
 
 /* -------------------- Pointer Events -------------------- */
+// when mouse click
 canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault();
   canvas.setPointerCapture(ev.pointerId);
+  
   const pos = screenToCanvas(ev);
 
   activeHandle = null;
   isResizing = false;
 
+  // check if click hits a resize handle -> start resizing
   if (selected) {
     const hn = selected.handleAt(pos.x, pos.y);
     if (hn) {
@@ -644,7 +692,7 @@ canvas.addEventListener('pointerdown', (ev) => {
     }
   }
 
-  // find topmost shape under pointer to select/drag
+  // check if click hits a shape → select + drag
   selected = null;
   for (let i = shapes.length - 1; i >= 0; i--) {
     if (shapes[i].contains(pos.x, pos.y)) {
@@ -652,6 +700,7 @@ canvas.addEventListener('pointerdown', (ev) => {
       isDragging = true;
       dragOffsetX = pos.x - selected.x;
       dragOffsetY = pos.y - selected.y;
+	  
       // open panel for this shape
       openPanelForShape(selected);
       redraw();
@@ -659,16 +708,20 @@ canvas.addEventListener('pointerdown', (ev) => {
     }
   }
 
-  // start drawing new shape
+  // start drawing a new shape
   isDrawing = true;
   startX = pos.x; startY = pos.y;
   tempShape = null;
+  
   // when starting to draw, close panel (avoid overlap)
   closePanel();
 });
 
+// when mouse is moving
 canvas.addEventListener('pointermove', (ev) => {
   const pos = screenToCanvas(ev);
+  
+  // for resizing
   if (isResizing && selected && activeHandle) {
     resizeShape(selected, activeHandle, pos.x, pos.y);
     syncPanelToShape();
@@ -676,6 +729,7 @@ canvas.addEventListener('pointermove', (ev) => {
     return;
   }
 
+  // for dragging
   if (isDragging && selected) {
     selected.x = pos.x - dragOffsetX;
     selected.y = pos.y - dragOffsetY;
@@ -684,13 +738,14 @@ canvas.addEventListener('pointermove', (ev) => {
     return;
   }
 
+  // for drawing
   if (isDrawing) {
+	// drawing a rectangle
     if (shapeType.value === 'rectangle') {
       const x = Math.min(startX, pos.x);
       const y = Math.min(startY, pos.y);
       const w = Math.abs(pos.x - startX);
       const h = Math.abs(pos.y - startY);
-	  debugger;
       tempShape = new Shape('rectangle', x, y, w, h, {
         //border: borderType.value,
         //fill: fillColor.value,
@@ -698,7 +753,7 @@ canvas.addEventListener('pointermove', (ev) => {
         //opacity: +opacity.value
         //rounded: willBeRounded
       });
-    } else {
+    } else { // drawing a circle
       const dx = pos.x - startX;
       const dy = pos.y - startY;
       const r = Math.max(0, Math.sqrt(dx*dx + dy*dy));
@@ -726,11 +781,13 @@ canvas.addEventListener('pointermove', (ev) => {
   canvas.style.cursor = cursor;
 });
 
+// when mouse is up
 canvas.addEventListener('pointerup', (ev) => {
   ev.preventDefault();
   canvas.releasePointerCapture(ev.pointerId);
   const pos = screenToCanvas(ev);
 
+  // for resizing
   if (isResizing) {
     isResizing = false;
     activeHandle = null;
@@ -739,6 +796,7 @@ canvas.addEventListener('pointerup', (ev) => {
     return;
   }
 
+  // for dragging
   if (isDragging) {
     isDragging = false;
     syncPanelToShape();
@@ -746,13 +804,14 @@ canvas.addEventListener('pointerup', (ev) => {
     return;
   }
 
+  // for drawing
   if (isDrawing && tempShape) {
     if ((tempShape.type === 'rectangle' && tempShape.w > 4 && tempShape.h > 4) ||
         (tempShape.type === 'circle' && Math.sqrt(tempShape.w*tempShape.w + tempShape.h*tempShape.h) > 4)) {
-		debugger;
 
       shapes.push(tempShape);
       selected = tempShape;
+	  
       // open panel for new shape
       openPanelForShape(selected);
     }
@@ -770,7 +829,16 @@ canvas.addEventListener('pointercancel', (ev) => {
 });
 
 /* -------------------- Resize algorithm (4 handles) -------------------- */
+/*
+Resizing Shapes: uses 4 corners handles:
+	tl = top-left
+	tr = top-right
+	bl = bottom-left
+	br = bottom-right
+*/
 function resizeShape(shape, handle, mx, my) {
+
+  // for rectangle
   if (shape.type === 'rectangle') {
     let x = shape.x, y = shape.y, w = shape.w, h = shape.h;
     const right = x + w;
@@ -801,7 +869,7 @@ function resizeShape(shape, handle, mx, my) {
     if (shape.rounded) {
       shape.radius = Math.max(0, Math.min(shape.w, shape.h) * 0.1);
     }
-  } else {
+  } else { // for circle
     const dx = mx - shape.x;
     const dy = my - shape.y;
     const r = Math.max(2, Math.sqrt(dx*dx + dy*dy));
@@ -971,8 +1039,16 @@ function autoResizeTextEditor() {
     textEditor.style.height = (textEditor.scrollHeight) + "px"; // Fit to content
 }
 
-// wraps text so it fits inside the shape width
-// ALL text handling + wrapping + alignment
+/*
+wraps text so it fits inside the shape width
+all text handling + wrapping + alignment
+
+Draws the text according to:
+	Position (center, top, bottom, left, right)
+	Color
+	Font size
+	Alignment inside the shape
+*/
 function renderText(ctx, shape) {
     if (!shape.text) return;
 
@@ -991,7 +1067,6 @@ function renderText(ctx, shape) {
     let x = shape.x + shape.w / 2;
     let y = shape.y + shape.h / 2;
 
-	
     switch (shape.textPosition) {
         case "top":
             //x = shape.x;
