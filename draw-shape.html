@@ -159,52 +159,13 @@
     </select>
   </label>
 
-  <label>Rounded corners (auto):
-    <input type="checkbox" id="roundedToggle" title="When checked, new rectangles become rounded (radius = min(w,h)*0.1)">
-  </label>
-
-  <label>Border:
-    <select id="borderType">
-      <option value="solid">Solid</option>
-      <option value="dashed">Dashed</option>
-      <option value="bold">Bold</option>
-    </select>
-  </label>
-
-  <label>Fill:
-    <input type="color" id="fillColor" value="#ffffff">
-  </label>
-
-  <label>Thickness:
-    <input type="number" id="thickness" min="1" max="10" value="2">
-  </label>
-
-  <label>Opacity:
-    <input type="range" id="opacity" min="0" max="1" step="0.05" value="1">
-  </label>
-
   <button id="clearBtn">Clear</button>
   <button id="deleteBtn">Delete Selected</button>
-
-  <!-- TEXT CONTROLS (toolbar) -->
-  <div id="textControls">
-    <label>Text:
-      <input type="text" id="shapeText" style="width:160px" placeholder="shape text">
-    </label>
-
-    <label>Font:
-      <input type="number" id="textSize" min="8" max="72" value="16" style="width:64px">
-    </label>
-
-    <label>Color:
-      <input type="color" id="textColor" value="#000000">
-    </label>
-  </div>
 </div>
 
 <canvas id="canvas"></canvas>
 
-<!-- Slide-in Panel -->
+<!-- Slide-in Panel for Shape Properties -->
 <div id="panel" aria-hidden="true">
   <header>
     <h3>Shape Properties</h3>
@@ -248,7 +209,7 @@
 
   <div class="row">
     <label>Rounded</label>
-    <input id="propRounded" type="checkbox" title="Keep rectangle rounded (auto radius) — only for rectangles">
+    <input id="propRounded" type="checkbox" title="Rectangle rounded">
   </div>
 
   <div class="row">
@@ -286,7 +247,7 @@
     <input id="panelTextColor" type="color" value="#000000">
   </div>
 
-	<label>Text Position:</label>
+  <label>Text Position:</label>
 	<select id="textPosition">
 	  <option value="center">Center</option>
 	  <option value="top">Top</option>
@@ -300,7 +261,7 @@
     <button id="propReset">Reset</button>
   </div>
 
-  <div style="margin-top:8px;" class="muted">Tip: edits update the canvas live. Press Esc to close panel.</div>
+  <!--<div style="margin-top:8px;" class="muted">Tip: edits update the canvas live. Press Esc to close panel.</div>-->
 </div>
 
 <script>
@@ -310,18 +271,9 @@ const ctx = canvas.getContext('2d');
 
 const toolbar = document.getElementById('toolbar');
 const shapeType = document.getElementById('shapeType');
-const roundedToggle = document.getElementById('roundedToggle');
-const borderType = document.getElementById('borderType');
-const fillColor = document.getElementById('fillColor');
-const thickness = document.getElementById('thickness');
-const opacity = document.getElementById('opacity');
+
 const clearBtn = document.getElementById('clearBtn');
 const deleteBtn = document.getElementById('deleteBtn');
-
-const textControls = document.getElementById('textControls');
-const shapeText = document.getElementById('shapeText');
-const textSize = document.getElementById('textSize');
-const textColor = document.getElementById('textColor');
 
 const panel = document.getElementById('panel');
 const panelClose = document.getElementById('panelClose');
@@ -420,27 +372,6 @@ class Shape {
       ctx.fill();
       ctx.stroke();
     }
-
-    // DRAW TEXT (centered)
-    /*if (this.text) {
-      ctx.save();
-      ctx.fillStyle = this.textColor;
-      ctx.font = `${this.textSize}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      let cx, cy;
-      if (this.type === 'rectangle') {
-        cx = this.x + (this.w / 2);
-        cy = this.y + (this.h / 2);
-      } else {
-        cx = this.x;
-        cy = this.y;
-      }
-
-      ctx.fillText(this.text, cx, cy);
-      ctx.restore();
-    }*/
 
     if (highlight) {
       this.drawOutline(ctx);
@@ -576,7 +507,6 @@ function openPanelForShape(shape) {
   selected = shape;
   syncPanelToShape();
   // show toolbar text controls if shape has text (we show them always when selected)
-  textControls.style.display = 'flex';
   panel.classList.add('open');
   panel.setAttribute('aria-hidden', 'false');
   // ensure panel is visible (force reflow in odd cases)
@@ -585,10 +515,10 @@ function openPanelForShape(shape) {
 function closePanel() {
   panel.classList.remove('open');
   panel.setAttribute('aria-hidden', 'true');
-  textControls.style.display = 'none';
 }
 
 function syncPanelToShape() {
+	debugger;
   if (!selected) return;
   propType.value = selected.type;
   propFill.value = selected.opts.fill;
@@ -617,13 +547,9 @@ function syncPanelToShape() {
   panelText.value = selected.text || "";
   panelTextSize.value = selected.textSize || 16;
   panelTextColor.value = selected.textColor || "#000000";
-
-  // toolbar text controls sync
-  shapeText.value = selected.text || "";
-  textSize.value = selected.textSize || 16;
-  textColor.value = selected.textColor || "#000000";
 }
 
+// apply shape properties
 function applyPanelToShape(live = true) {
   if (!selected) return;
   selected.opts.fill = propFill.value;
@@ -650,11 +576,6 @@ function applyPanelToShape(live = true) {
   selected.textSize = +panelTextSize.value;
   selected.textColor = panelTextColor.value;
 
-  // sync toolbar controls as well
-  shapeText.value = selected.text;
-  textSize.value = selected.textSize;
-  textColor.value = selected.textColor;
-
   if (live) redraw();
 }
 
@@ -663,7 +584,17 @@ propFill.addEventListener('input', () => { if(selected){ selected.opts.fill = pr
 propBorder.addEventListener('change', () => { if(selected){ selected.opts.border = propBorder.value; redraw(); }});
 propThickness.addEventListener('input', () => { if(selected){ selected.opts.thickness = +propThickness.value; redraw(); }});
 propOpacity.addEventListener('input', () => { if(selected){ selected.opts.opacity = +propOpacity.value; propOpacityVal.innerText = (+propOpacity.value).toFixed(2); redraw(); }});
-propRounded.addEventListener('change', () => { if(selected && selected.type === 'rectangle'){ selected.rounded = propRounded.checked; if(selected.rounded) selected.radius = Math.max(0, Math.min(Math.abs(selected.w), Math.abs(selected.h)) * 0.1); redraw(); }});
+
+// Rounded corners
+propRounded.addEventListener('change', () => { 
+	if(selected && selected.type === 'rectangle'){ 
+		selected.rounded = propRounded.checked; 
+		if(selected.rounded) 
+			selected.radius = Math.max(0, Math.min(Math.abs(selected.w), Math.abs(selected.h)) * 0.1); 
+			redraw(); 
+	}
+});
+
 [propX, propY].forEach(inp => inp.addEventListener('input', () => { if(selected){ selected.x = +propX.value; selected.y = +propY.value; redraw(); }}));
 propW.addEventListener('input', () => { if(!selected) return; if(selected.type === 'rectangle'){ selected.w = +propW.value; if(selected.rounded) selected.radius = Math.max(0, Math.min(Math.abs(selected.w), Math.abs(selected.h)) * 0.1); } else { selected.w = +propW.value; selected.h = +propW.value; } redraw(); });
 propH.addEventListener('input', () => { if(!selected) return; if(selected.type === 'rectangle'){ selected.h = +propH.value; if(selected.rounded) selected.radius = Math.max(0, Math.min(Math.abs(selected.w), Math.abs(selected.h)) * 0.1); } else { const r = +propH.value; selected.w = r; selected.h = r; } redraw(); });
@@ -738,24 +669,23 @@ canvas.addEventListener('pointermove', (ev) => {
       const y = Math.min(startY, pos.y);
       const w = Math.abs(pos.x - startX);
       const h = Math.abs(pos.y - startY);
-      const willBeRounded = roundedToggle.checked;
+	  debugger;
       tempShape = new Shape('rectangle', x, y, w, h, {
-        border: borderType.value,
-        fill: fillColor.value,
-        thickness: +thickness.value,
-        opacity: +opacity.value,
-        rounded: willBeRounded
+        //border: borderType.value,
+        //fill: fillColor.value,
+        //thickness: +thickness.value,
+        //opacity: +opacity.value
+        //rounded: willBeRounded
       });
-      if (willBeRounded) tempShape.radius = Math.max(0, Math.min(w, h) * 0.1);
     } else {
       const dx = pos.x - startX;
       const dy = pos.y - startY;
       const r = Math.max(0, Math.sqrt(dx*dx + dy*dy));
       tempShape = new Shape('circle', startX, startY, r, r, {
-        border: borderType.value,
-        fill: fillColor.value,
-        thickness: +thickness.value,
-        opacity: +opacity.value
+        //border: borderType.value,
+        //fill: fillColor.value,
+        //thickness: +thickness.value,
+        //opacity: +opacity.value
       });
     }
     redraw();
@@ -798,10 +728,8 @@ canvas.addEventListener('pointerup', (ev) => {
   if (isDrawing && tempShape) {
     if ((tempShape.type === 'rectangle' && tempShape.w > 4 && tempShape.h > 4) ||
         (tempShape.type === 'circle' && Math.sqrt(tempShape.w*tempShape.w + tempShape.h*tempShape.h) > 4)) {
-      if (tempShape.type === 'rectangle' && roundedToggle.checked && !tempShape.rounded) {
-        tempShape.rounded = true;
-        tempShape.radius = Math.max(0, Math.min(tempShape.w, tempShape.h) * 0.1);
-      }
+		debugger;
+
       shapes.push(tempShape);
       selected = tempShape;
       // open panel for new shape
@@ -941,10 +869,6 @@ function startInlineEdit(shape) {
     textEditor.style.top = (shape.y + canvas.offsetTop) + "px";
     textEditor.style.width = shape.w + "px";
     textEditor.style.height = shape.h + "px";
-
-    // --- AUTO-RESIZE ON OPEN ---
-    //textEditor.style.height = "auto"; // reset first
-    //textEditor.style.height = textEditor.scrollHeight + "px"; // resize to content
 	
 	// Do NOT wrap → shape text can be longer than box
     textEditor.style.width = shape.w + "px";
@@ -964,14 +888,11 @@ function startInlineEdit(shape) {
 }
 
 /* -------------------- Toolbar text controls binding -------------------- */
-shapeText.addEventListener('input', () => { if (selected) { selected.text = shapeText.value; redraw(); }});
-textSize.addEventListener('change', () => { if (selected) { selected.textSize = +textSize.value; redraw(); }});
-textColor.addEventListener('input', () => { if (selected) { selected.textColor = textColor.value; redraw(); }});
 
 /* Panel text bindings */
-panelText.addEventListener('input', () => { if (selected) { selected.text = panelText.value; shapeText.value = selected.text; redraw(); }});
-panelTextSize.addEventListener('input', () => { if (selected) { selected.textSize = +panelTextSize.value; textSize.value = selected.textSize; redraw(); }});
-panelTextColor.addEventListener('input', () => { if (selected) { selected.textColor = panelTextColor.value; textColor.value = selected.textColor; redraw(); }});
+panelText.addEventListener('input', () => { if (selected) { selected.text = panelText.value; redraw(); }});
+panelTextSize.addEventListener('input', () => { if (selected) { selected.textSize = +panelTextSize.value; redraw(); }});
+panelTextColor.addEventListener('input', () => { if (selected) { selected.textColor = panelTextColor.value; redraw(); }});
 
 // Save changes when user leaves input or presses Enter
 textEditor.addEventListener("blur", finishInlineEdit);
@@ -1000,12 +921,6 @@ document.addEventListener("contextmenu", (e) => {
 });
 
   // Save changes when user leaves input or presses Enter
-/*
-  if (ev.key === "Enter") {
-    ev.preventDefault();
-	finishInlineEdit();
-  }
-	*/
   if (ev.key === 'Escape') { 
 	closePanel();
 	selected = null;
@@ -1016,11 +931,6 @@ document.addEventListener("contextmenu", (e) => {
 // Saves the text before the textarea width resets
 function finishInlineEdit() {
     if (!editingShape) return;
-
-	// Force editor width so wrapping matches shape width
-    //textEditor.style.width = editingShape.w + "px";
-	//textEditor.style.height = "auto";
-    //textEditor.style.height = textEditor.scrollHeight + "px";
 	
     // Save exactly the text the user wrote (NO wrapping)
     editingShape.text = textEditor.value;
