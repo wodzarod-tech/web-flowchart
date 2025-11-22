@@ -878,15 +878,31 @@ function resizeShape(shape, handle, mx, my) {
 }
 
 /* -------------------- Utilities & Controls -------------------- */
-clearBtn.addEventListener('click', () => { shapes = []; selected = null; tempShape = null; closePanel(); redraw(); });
-deleteBtn.addEventListener('click', () => { if (selected) { shapes = shapes.filter(s => s !== selected); selected = null; closePanel(); redraw(); } });
-
-document.querySelector("#textPosition").addEventListener("change", (e) => {
-    if (!selected) return;
-    selected.textPosition = e.target.value;
-    redraw();
+clearBtn.addEventListener('click', () => {
+  shapes = [];
+  selected = null;
+  tempShape = null;
+  closePanel();
+  redraw();
 });
 
+deleteBtn.addEventListener('click', () => {
+  if (selected) { 
+    shapes = shapes.filter(s => s !== selected); 
+	selected = null; 
+	closePanel(); 
+	redraw(); 
+  }
+});
+
+// when change position of text in a shape
+document.querySelector("#textPosition").addEventListener("change", (e) => {
+  if (!selected) return;
+    selected.textPosition = e.target.value;
+  redraw();
+});
+
+// when press delete key to delete a shape
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Delete' && selected) {
     shapes = shapes.filter(s => s !== selected);
@@ -894,7 +910,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-/* deselect on canvas click when clicking empty area (and close panel) */
+// deselect on canvas click when clicking empty area (and close panel)
+// or when ending drawing a shape
 canvas.addEventListener('click', (ev) => {
   const pos = screenToCanvas(ev);
   let hit = false;
@@ -908,17 +925,16 @@ canvas.addEventListener('click', (ev) => {
   if (!hit) { selected = null; closePanel(); redraw(); }
 });
 
-/* -------------------- Double-click for text editing -------------------- */
-
 // ESC to cancel editing
 document.addEventListener("keydown", (e) => {
-    if (!editingShape) return; // No editor open → do nothing
+    if (!editingShape) return; // no editor open -> do nothing
 
     if (e.key === "Escape") {
         finishInlineEdit();
     }
 });
 
+// when double-left click
 canvas.addEventListener('dblclick', (ev) => {
   const pos = screenToCanvas(ev);
   
@@ -935,7 +951,7 @@ canvas.addEventListener('dblclick', (ev) => {
   selected = hit;
 });
 
-// Close editor when right-clicking the canvas
+// when right-clicking the canvas then close editor
 canvas.addEventListener("contextmenu", (e) => {
     if (editingShape) {
         e.preventDefault();   // prevent default context menu
@@ -943,7 +959,7 @@ canvas.addEventListener("contextmenu", (e) => {
     }
 });
 
-// Start text editing inside the shape
+// start text editing inside the shape
 function startInlineEdit(shape) {
     editingShape = shape;
 
@@ -959,15 +975,15 @@ function startInlineEdit(shape) {
     textEditor.style.width = shape.w + "px";
     textEditor.style.height = shape.h + "px";
 	
-	// Do NOT wrap → shape text can be longer than box
+	// NOT wrap, shape text can be longer than box
     textEditor.style.width = shape.w + "px";
     textEditor.style.height = shape.h + "px";
 
-    // Important: disable wrapping
+    // disable wrapping
     textEditor.style.whiteSpace = "nowrap";
     textEditor.style.overflow = "hidden";
 	
-	// CENTER TEXT
+	// center text
     textEditor.style.textAlign = "center";
     centerEditorText(shape);
 	
